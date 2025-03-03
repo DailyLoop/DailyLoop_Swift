@@ -101,3 +101,7 @@ Config.swift
 
 # Thumbnails
 ._*
+
+
+# Project specific
+Utils/Config.swift
