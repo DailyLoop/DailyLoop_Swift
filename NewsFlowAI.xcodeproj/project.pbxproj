@@ -13,7 +13,6 @@
 		B30C4FD32D76106A003CB1B3 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD22D76106A003CB1B3 /* Realtime */; };
 		B30C4FD52D76106A003CB1B3 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD42D76106A003CB1B3 /* Storage */; };
 		B30C4FD72D76106A003CB1B3 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD62D76106A003CB1B3 /* Supabase */; };
-		B30C4FDE2D761629003CB1B3 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = B30C4FDD2D761620003CB1B3 /* .gitignore */; };
 		B37D94452D7602C800F2A5D8 /* NewsFlowAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */; };
 		B37D94472D7602C800F2A5D8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94462D7602C800F2A5D8 /* ContentView.swift */; };
 		B37D94492D7602C800F2A5D8 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94482D7602C800F2A5D8 /* Item.swift */; };
@@ -37,7 +36,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		B30C4FDD2D761620003CB1B3 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		B37D94412D7602C800F2A5D8 /* NewsFlowAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NewsFlowAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsFlowAIApp.swift; sourceTree = "<group>"; };
 		B37D94462D7602C800F2A5D8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -128,7 +126,6 @@
 		B37D94382D7602C800F2A5D8 = {
 			isa = PBXGroup;
 			children = (
-				B30C4FDD2D761620003CB1B3 /* .gitignore */,
 				B37D94772D7603F000F2A5D8 /* Resources */,
 				B37D94762D7603E500F2A5D8 /* Utils */,
 				B37D94732D7603BF00F2A5D8 /* ViewModels */,
@@ -290,7 +287,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B30C4FDE2D761629003CB1B3 /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
