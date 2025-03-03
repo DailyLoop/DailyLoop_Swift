@@ -80,14 +80,14 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-		B37D94762D7603E500F2A5D8 /* Utils */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Utils;
-			sourceTree = "<group>";
-		};
 		B37D94772D7603F000F2A5D8 /* Resources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		B3F929F52D7643ED00CC55AC /* Utils */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Utils;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -126,8 +126,8 @@
 		B37D94382D7602C800F2A5D8 = {
 			isa = PBXGroup;
 			children = (
+				B3F929F52D7643ED00CC55AC /* Utils */,
 				B37D94772D7603F000F2A5D8 /* Resources */,
-				B37D94762D7603E500F2A5D8 /* Utils */,
 				B37D94732D7603BF00F2A5D8 /* ViewModels */,
 				B37D94432D7602C800F2A5D8 /* NewsFlowAI */,
 				B37D94562D7602C900F2A5D8 /* NewsFlowAITests */,
@@ -173,8 +173,8 @@
 				B37D94722D7603AD00F2A5D8 /* Views */,
 				B37D94732D7603BF00F2A5D8 /* ViewModels */,
 				B37D94752D7603DB00F2A5D8 /* Services */,
-				B37D94762D7603E500F2A5D8 /* Utils */,
 				B37D94772D7603F000F2A5D8 /* Resources */,
+				B3F929F52D7643ED00CC55AC /* Utils */,
 			);
 			name = NewsFlowAI;
 			packageProductDependencies = (
