@@ -14,8 +14,8 @@
 		B30C4FD52D76106A003CB1B3 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD42D76106A003CB1B3 /* Storage */; };
 		B30C4FD72D76106A003CB1B3 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD62D76106A003CB1B3 /* Supabase */; };
 		B37D94452D7602C800F2A5D8 /* NewsFlowAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */; };
-		B37D94472D7602C800F2A5D8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94462D7602C800F2A5D8 /* ContentView.swift */; };
 		B37D94492D7602C800F2A5D8 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94482D7602C800F2A5D8 /* Item.swift */; };
+		B3F92A012D766CA400CC55AC /* Documentation.md in Resources */ = {isa = PBXBuildFile; fileRef = B3F92A002D766CA400CC55AC /* Documentation.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,10 +38,10 @@
 /* Begin PBXFileReference section */
 		B37D94412D7602C800F2A5D8 /* NewsFlowAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NewsFlowAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsFlowAIApp.swift; sourceTree = "<group>"; };
-		B37D94462D7602C800F2A5D8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B37D94482D7602C800F2A5D8 /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		B37D94532D7602C900F2A5D8 /* NewsFlowAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NewsFlowAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B37D945D2D7602C900F2A5D8 /* NewsFlowAIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NewsFlowAIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3F92A002D766CA400CC55AC /* Documentation.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Documentation.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -126,6 +126,7 @@
 		B37D94382D7602C800F2A5D8 = {
 			isa = PBXGroup;
 			children = (
+				B3F92A002D766CA400CC55AC /* Documentation.md */,
 				B3F929F52D7643ED00CC55AC /* Utils */,
 				B37D94772D7603F000F2A5D8 /* Resources */,
 				B37D94732D7603BF00F2A5D8 /* ViewModels */,
@@ -136,7 +137,6 @@
 				B37D94702D76039400F2A5D8 /* Models */,
 				B37D94722D7603AD00F2A5D8 /* Views */,
 				B37D94752D7603DB00F2A5D8 /* Services */,
-				B37D94462D7602C800F2A5D8 /* ContentView.swift */,
 				B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */,
 				B37D94482D7602C800F2A5D8 /* Item.swift */,
 			);
@@ -287,6 +287,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B3F92A012D766CA400CC55AC /* Documentation.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -311,7 +312,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B37D94472D7602C800F2A5D8 /* ContentView.swift in Sources */,
 				B37D94492D7602C800F2A5D8 /* Item.swift in Sources */,
 				B37D94452D7602C800F2A5D8 /* NewsFlowAIApp.swift in Sources */,
 			);
