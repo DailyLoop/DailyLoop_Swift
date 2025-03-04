@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import Foundation
 import Combine
 
@@ -14,13 +15,22 @@ class NewsViewModel: ObservableObject {
     @Published var selectedKeywords: [String] = []
     
     private let supabase = SupabaseClient.shared
-    private var sessionId = UUID().uuidString
+    
+    // Persist sessionId using UserDefaults so it lasts across launches.
+    private var sessionId: String {
+        if let existing = UserDefaults.standard.string(forKey: "news_session_id") {
+            return existing
+        } else {
+            let newSession = UUID().uuidString
+            UserDefaults.standard.set(newSession, forKey: "news_session_id")
+            return newSession
+        }
+    }
     
     func search(keyword: String) async {
         if !selectedKeywords.contains(keyword) {
             selectedKeywords.append(keyword)
         }
-        
         await fetchNews()
     }
     
@@ -30,15 +40,12 @@ class NewsViewModel: ObservableObject {
         } else {
             selectedKeywords.append(keyword)
         }
-        
         await fetchNews()
     }
     
     private func fetchNews() async {
         guard !selectedKeywords.isEmpty else {
-            await MainActor.run {
-                self.articles = []
-            }
+            await MainActor.run { self.articles = [] }
             return
         }
         
@@ -50,13 +57,9 @@ class NewsViewModel: ObservableObject {
         }
         
         do {
-            let articles = try await supabase.fetchNews(
-                keyword: searchQuery,
-                sessionId: sessionId
-            )
-            
+            let fetchedArticles = try await supabase.fetchNews(keyword: searchQuery, sessionId: sessionId)
             await MainActor.run {
-                self.articles = articles
+                self.articles = fetchedArticles
                 self.isLoading = false
             }
         } catch {
@@ -73,21 +76,19 @@ class NewsViewModel: ObservableObject {
         do {
             if article.isBookmarked, let bookmarkId = article.bookmarkId {
                 try await supabase.removeBookmark(bookmarkId: bookmarkId)
-                
                 await MainActor.run {
-                    var updatedArticle = article
-                    updatedArticle.isBookmarked = false
-                    updatedArticle.bookmarkId = nil
-                    articles[index] = updatedArticle
+                    var updated = article
+                    updated.isBookmarked = false
+                    updated.bookmarkId = nil
+                    articles[index] = updated
                 }
             } else {
                 let bookmarkId = try await supabase.addBookmark(newsId: article.id)
-                
                 await MainActor.run {
-                    var updatedArticle = article
-                    updatedArticle.isBookmarked = true
-                    updatedArticle.bookmarkId = bookmarkId
-                    articles[index] = updatedArticle
+                    var updated = article
+                    updated.isBookmarked = true
+                    updated.bookmarkId = bookmarkId
+                    articles[index] = updated
                 }
             }
         } catch {

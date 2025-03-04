@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import Foundation
 import Combine
 
@@ -22,7 +23,6 @@ class BookmarkViewModel: ObservableObject {
         
         do {
             let articles = try await supabase.getBookmarks()
-            
             await MainActor.run {
                 self.bookmarkedArticles = articles.map { article in
                     var bookmarkedArticle = article
@@ -44,13 +44,12 @@ class BookmarkViewModel: ObservableObject {
         
         do {
             try await supabase.removeBookmark(bookmarkId: bookmarkId)
-            
             await MainActor.run {
-                bookmarkedArticles.removeAll { $0.id == article.id }
+                self.bookmarkedArticles.removeAll { $0.id == article.id }
             }
         } catch {
             await MainActor.run {
-                errorMessage = "Failed to remove bookmark: \(error.localizedDescription)"
+                self.errorMessage = "Failed to remove bookmark: \(error.localizedDescription)"
             }
         }
     }

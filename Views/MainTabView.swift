@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import SwiftUI
 
 struct MainTabView: View {
@@ -46,21 +47,18 @@ struct MainTabView: View {
             }
         }
         .onAppear {
-            // Set the tab bar appearance
+            // Customize tab bar appearance if needed
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
-            
             UITabBar.appearance().standardAppearance = appearance
             if #available(iOS 15.0, *) {
                 UITabBar.appearance().scrollEdgeAppearance = appearance
             }
             
-            // Initialize data
             Task {
-                if newsViewModel.articles.isEmpty && !newsViewModel.selectedKeywords.isEmpty {
+                if !newsViewModel.selectedKeywords.isEmpty {
                     await newsViewModel.search(keyword: newsViewModel.selectedKeywords.joined(separator: " "))
                 }
-                
                 await bookmarkViewModel.fetchBookmarks()
             }
         }
@@ -71,4 +69,3 @@ struct MainTabView: View {
     MainTabView()
         .environmentObject(AuthViewModel())
 }
-

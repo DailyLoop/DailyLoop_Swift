@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import Foundation
 import Combine
 
@@ -44,13 +45,7 @@ class AuthViewModel: ObservableObject {
         
         do {
             let user = try await supabase.signUp(email: email, password: password)
-            
-            // If we have a display name, update the user profile
-            if let displayName = displayName {
-                // Update user profile with displayName
-                // Implementation depends on your specific Supabase setup
-            }
-            
+            // Optionally update display name via your backend
             await MainActor.run {
                 self.user = user
                 self.isAuthenticated = true
@@ -85,7 +80,6 @@ class AuthViewModel: ObservableObject {
     }
     
     func checkSession() async {
-        // Check if user is already signed in from a previous session
-        // Implementation depends on your specific Supabase setup
+        // Implement session checking if needed
     }
 }

@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import SwiftUI
 
 struct ArticleDetailView: View {
@@ -14,7 +15,6 @@ struct ArticleDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Header info
                 HStack {
                     Text(article.source)
                         .font(.subheadline)
@@ -31,12 +31,10 @@ struct ArticleDetailView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                // Title
                 Text(article.title)
                     .font(.title)
                     .fontWeight(.bold)
                 
-                // Image
                 if let imageUrl = article.imageUrl, !imageUrl.isEmpty {
                     AsyncImage(url: URL(string: imageUrl)) { image in
                         image
@@ -51,14 +49,12 @@ struct ArticleDetailView: View {
                     .clipped()
                 }
                 
-                // Author (if available)
                 if let author = article.author, !author.isEmpty {
                     Text("By \(author)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
                 
-                // Summary
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Summary")
                         .font(.headline)
@@ -71,7 +67,6 @@ struct ArticleDetailView: View {
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(8)
                 
-                // Actions
                 HStack {
                     Button {
                         if let url = URL(string: article.url) {

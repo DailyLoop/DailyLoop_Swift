@@ -4,7 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
-// Views/Bookmarks/BookmarksView.swift
+
 import SwiftUI
 
 struct BookmarksView: View {

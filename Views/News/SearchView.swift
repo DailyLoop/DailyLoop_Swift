@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import SwiftUI
 
 struct SearchView: View {
@@ -18,7 +19,6 @@ struct SearchView: View {
     
     var body: some View {
         VStack {
-            // Search bar
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
@@ -48,7 +48,6 @@ struct SearchView: View {
             .cornerRadius(10)
             .padding(.horizontal)
             
-            // Suggested topics
             if searchText.isEmpty && newsViewModel.articles.isEmpty {
                 VStack(alignment: .leading) {
                     Text("Suggested Topics")
@@ -77,7 +76,6 @@ struct SearchView: View {
                     }
                 }
             } else {
-                // Search results
                 ScrollView {
                     if newsViewModel.isLoading {
                         ProgressView()

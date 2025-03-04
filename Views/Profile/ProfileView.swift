@@ -4,7 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
-// Views/Profile/ProfileView.swift
+
 import SwiftUI
 
 struct ProfileView: View {
@@ -12,7 +12,6 @@ struct ProfileView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Profile header
             VStack(spacing: 16) {
                 Image(systemName: "person.circle.fill")
                     .font(.system(size: 80))
@@ -24,7 +23,6 @@ struct ProfileView: View {
             }
             .padding()
             
-            // Options list
             List {
                 Section(header: Text("Account")) {
                     Button {
@@ -37,7 +35,6 @@ struct ProfileView: View {
                                 .foregroundColor(.gray)
                         }
                     }
-                    .foregroundColor(.primary)
                     
                     Button {
                         // Notification settings
@@ -49,7 +46,6 @@ struct ProfileView: View {
                                 .foregroundColor(.gray)
                         }
                     }
-                    .foregroundColor(.primary)
                 }
                 
                 Section(header: Text("App Settings")) {
@@ -63,7 +59,6 @@ struct ProfileView: View {
                                 .foregroundColor(.gray)
                         }
                     }
-                    .foregroundColor(.primary)
                     
                     Button {
                         // Privacy settings
@@ -75,7 +70,6 @@ struct ProfileView: View {
                                 .foregroundColor(.gray)
                         }
                     }
-                    .foregroundColor(.primary)
                 }
                 
                 Section {

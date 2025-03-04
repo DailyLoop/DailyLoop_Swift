@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import SwiftUI
 
 struct ArticleCardView: View {
@@ -12,7 +13,6 @@ struct ArticleCardView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Source and date
             HStack {
                 Text(article.source)
                     .font(.caption)
@@ -29,13 +29,11 @@ struct ArticleCardView: View {
                     .foregroundColor(.secondary)
             }
             
-            // Title
             Text(article.title)
                 .font(.headline)
                 .lineLimit(3)
                 .foregroundColor(.primary)
             
-            // Image
             if let imageUrl = article.imageUrl, !imageUrl.isEmpty {
                 AsyncImage(url: URL(string: imageUrl)) { image in
                     image
@@ -50,13 +48,11 @@ struct ArticleCardView: View {
                 .clipped()
             }
             
-            // Summary
             Text(article.summary)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .lineLimit(3)
             
-            // Actions
             HStack {
                 Spacer()
                 
@@ -77,7 +73,6 @@ struct ArticleCardView: View {
     }
     
     private func formatDate(_ dateString: String) -> String {
-        // Implement date formatting logic here
         return dateString.components(separatedBy: "T").first ?? dateString
     }
 }

@@ -4,6 +4,7 @@
 //
 //  Created by Akalpit Dawkhar on 3/3/25.
 //
+
 import SwiftUI
 
 struct HomeView: View {
@@ -45,7 +46,6 @@ struct HomeView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         if !newsViewModel.selectedKeywords.isEmpty {
-                            // Keywords chips
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(newsViewModel.selectedKeywords, id: \.self) { keyword in
