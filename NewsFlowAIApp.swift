@@ -10,10 +10,10 @@ import SwiftUI
 @main
 struct NewsFlowApp: App {
     @StateObject private var authViewModel = AuthViewModel()
-    // You can inject these view models here, or let MainTabView create them.
     @StateObject private var newsViewModel = NewsViewModel()
     @StateObject private var bookmarkViewModel = BookmarkViewModel()
-    
+    @StateObject private var storyTrackingViewModel = StoryTrackingViewModel()
+
     var body: some Scene {
         WindowGroup {
             if authViewModel.isAuthenticated {
@@ -21,6 +21,7 @@ struct NewsFlowApp: App {
                     .environmentObject(authViewModel)
                     .environmentObject(newsViewModel)
                     .environmentObject(bookmarkViewModel)
+                    .environmentObject(storyTrackingViewModel)
             } else {
                 AuthView()
                     .environmentObject(authViewModel)

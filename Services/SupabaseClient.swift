@@ -27,11 +27,8 @@ class SupabaseClient {
     
     func signUp(email: String, password: String) async throws -> User {
         let response = try await client.auth.signUp(email: email, password: password)
-        let supabaseUser = response.user  // Typically non-optional in supabase-swift
-        // If for some reason it's optional, do:
-        // guard let supabaseUser = response.user else { throw URLError(.badServerResponse) }
-
-        // Extract displayName
+        let supabaseUser = response.user
+        
         var displayName: String? = nil
         if let anyJSON = supabaseUser.userMetadata["display_name"] {
             if let stringValue = anyJSON.stringValue {
@@ -39,7 +36,6 @@ class SupabaseClient {
             }
         }
 
-        // Extract avatarUrl
         var avatarUrl: String? = nil
         if let anyJSON = supabaseUser.userMetadata["avatar_url"] {
             if let stringValue = anyJSON.stringValue {
@@ -47,7 +43,6 @@ class SupabaseClient {
             }
         }
 
-        // Build your local User model
         let appUser = User(
             id: supabaseUser.id.uuidString,
             email: supabaseUser.email,
@@ -166,5 +161,110 @@ class SupabaseClient {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let articles = try decoder.decode([Article].self, from: data)
         return articles
+    }
+    
+    // Optional Summarization
+    func fetchSummary(for articleText: String) async throws -> String {
+        guard let url = URL(string: "\(Config.Supabase.url)/summarize") else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = ["article_text": articleText]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        if let summary = json?["summary"] as? String {
+            return summary
+        } else {
+            throw URLError(.cannotParseResponse)
+        }
+    }
+    
+    // MARK: - Story Tracking Methods
+    
+    /// A small helper struct for decoding the createTrakedStory response if your backend returns { "status": "...", "data": { ... story ... } }
+    struct TrackedStoryResponse: Codable {
+        let status: String
+        let data: TrackedStory
+    }
+    
+    /// Fetch all tracked stories for the current user
+    func fetchTrackedStories() async throws -> [TrackedStory] {
+        guard let url = URL(string: "\(Config.Supabase.url)/api/story_tracking/user") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        // If needed, add JWT token header
+        // request.addValue("Bearer <token>", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let stories = try decoder.decode([TrackedStory].self, from: data)
+        return stories
+    }
+    
+    /// Create a new tracked story
+    func createTrackedStory(keyword: String, sourceArticleId: String? = nil) async throws -> TrackedStory {
+        guard let url = URL(string: "\(Config.Supabase.url)/api/story_tracking") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Adjust request body to match your backend's expected JSON
+        let body: [String: Any] = [
+            "keyword": keyword,
+            "sourceArticleId": sourceArticleId ?? ""
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        // If needed, add JWT token header
+        // request.addValue("Bearer <token>", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        // Typically creation returns 201, but confirm with your backend
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let trackedStoryResponse = try decoder.decode(TrackedStoryResponse.self, from: data)
+        return trackedStoryResponse.data
+    }
+    
+    /// Delete a tracked story by ID
+    func deleteTrackedStory(storyId: String) async throws {
+        guard let url = URL(string: "\(Config.Supabase.url)/api/story_tracking/\(storyId)") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        
+        // If needed, add JWT token header
+        // request.addValue("Bearer <token>", forHTTPHeaderField: "Authorization")
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
     }
 }

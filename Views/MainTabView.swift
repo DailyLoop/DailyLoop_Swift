@@ -9,8 +9,11 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    
+    // Provide default initializers for these view models
     @StateObject private var newsViewModel = NewsViewModel()
     @StateObject private var bookmarkViewModel = BookmarkViewModel()
+    @StateObject private var storyTrackingViewModel = StoryTrackingViewModel()
     
     var body: some View {
         TabView {
@@ -20,6 +23,14 @@ struct MainTabView: View {
             }
             .tabItem {
                 Label("Home", systemImage: "house.fill")
+            }
+            
+            NavigationView {
+                StoryTrackingView(keyword: "Technology")
+                    .environmentObject(storyTrackingViewModel)
+            }
+            .tabItem {
+                Label("Tracking", systemImage: "bell")
             }
             
             NavigationView {
@@ -55,6 +66,7 @@ struct MainTabView: View {
                 UITabBar.appearance().scrollEdgeAppearance = appearance
             }
             
+            // Example of loading data when the tab view appears
             Task {
                 if !newsViewModel.selectedKeywords.isEmpty {
                     await newsViewModel.search(keyword: newsViewModel.selectedKeywords.joined(separator: " "))
