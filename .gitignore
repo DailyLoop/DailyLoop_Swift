@@ -92,9 +92,6 @@ iOSInjectionProject/
 # Environment variables and secrets
 .env
 *.xcconfig
-Config.swift
-Utils/Config.swift
-NewsFlowAI/Utils/Config.swift
 
 # macOS
 .DS_Store
@@ -103,3 +100,8 @@ NewsFlowAI/Utils/Config.swift
 
 # Thumbnails
 ._*
+
+# Config files with secrets
+Config.swift
+**/Config.swift
+/Utils/Config.swift
