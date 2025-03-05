@@ -44,9 +44,22 @@
 		B3F92A002D766CA400CC55AC /* Documentation.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Documentation.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B34A4D4B2D777BF400A4DBAF /* Exceptions for "NewsFlowAI" folder in "NewsFlowAI" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B37D94402D7602C800F2A5D8 /* NewsFlowAI */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B37D94432D7602C800F2A5D8 /* NewsFlowAI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B34A4D4B2D777BF400A4DBAF /* Exceptions for "NewsFlowAI" folder in "NewsFlowAI" target */,
+			);
 			path = NewsFlowAI;
 			sourceTree = "<group>";
 		};
@@ -477,6 +490,7 @@
 				DEVELOPMENT_TEAM = Z7D98QZ9PJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NewsFlowAI/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -506,6 +520,7 @@
 				DEVELOPMENT_TEAM = Z7D98QZ9PJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NewsFlowAI/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
