@@ -93,6 +93,8 @@ iOSInjectionProject/
 .env
 *.xcconfig
 Config.swift
+Utils/Config.swift
+NewsFlowAI/Utils/Config.swift
 
 # macOS
 .DS_Store
