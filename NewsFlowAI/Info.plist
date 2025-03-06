@@ -1,19 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- URL Types (if needed) -->
     <key>CFBundleURLTypes</key>
     <array>
         <dict/>
     </array>
     
+    <!-- App Transport Security Configuration -->
     <key>NSAppTransportSecurity</key>
     <dict>
+        <!-- Because NSAllowsArbitraryLoads is false, we specify allowed domains -->
         <key>NSAllowsArbitraryLoads</key>
         <false/>
+        
         <key>NSExceptionDomains</key>
         <dict>
+            <!-- Existing exception for Supabase -->
             <key>supabase.co</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <false/>
+                <key>NSTemporaryExceptionMinimumTLSVersion</key>
+                <string>TLSv1.2</string>
+            </dict>
+            
+            <!-- New exception for your Google Cloud Run domain (if needed) -->
+            <key>us-central1.run.app</key>
             <dict>
                 <key>NSIncludesSubdomains</key>
                 <true/>
@@ -25,11 +42,17 @@
         </dict>
     </dict>
     
+    <!-- Supabase keys (from config.xcconfig or direct) -->
     <key>SUPABASE_URL</key>
     <string>$(SUPABASE_URL)</string>
     <key>SUPABASE_ANON_KEY</key>
     <string>$(SUPABASE_ANON_KEY)</string>
+
+    <!-- NEW KEY: API_BASE_URL for your custom backend -->
+    <key>API_BASE_URL</key>
+    <string>https://news-aggregator-99775608725.us-central1.run.app</string>
     
+    <!-- Standard Info.plist keys -->
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
@@ -53,14 +76,17 @@
     
     <key>UILaunchScreen</key>
     <dict/>
+    
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>armv7</string>
     </array>
+    
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
     </array>
+    
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>

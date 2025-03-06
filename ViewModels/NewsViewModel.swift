@@ -7,6 +7,28 @@
 
 import Foundation
 import Combine
+import os.log
+
+// Define custom error types for NewsViewModel
+enum NewsViewModelError: Error {
+    case emptyKeywords
+    case articleNotFound(String)
+    case bookmarkOperationFailed(Error)
+    case fetchFailed(Error)
+    
+    var localizedDescription: String {
+        switch self {
+        case .emptyKeywords:
+            return "No search keywords provided"
+        case .articleNotFound(let id):
+            return "Article with ID \(id) not found in collection"
+        case .bookmarkOperationFailed(let error):
+            return "Bookmark operation failed: \(error.localizedDescription)"
+        case .fetchFailed(let error):
+            return "Failed to fetch news: \(error.localizedDescription)"
+        }
+    }
+}
 
 class NewsViewModel: ObservableObject {
     @Published var articles: [Article] = []
@@ -15,86 +37,237 @@ class NewsViewModel: ObservableObject {
     @Published var selectedKeywords: [String] = []
     
     private let supabase = SupabaseClient.shared
+    private let logger = Logger(subsystem: "com.newsflowai.app", category: "NewsViewModel")
+    
+    // Store user ID for API calls
+    private var userId: String? {
+        return UserDefaults.standard.string(forKey: "user_id")
+    }
     
     // Persist sessionId using UserDefaults so it lasts across launches.
     private var sessionId: String {
         if let existing = UserDefaults.standard.string(forKey: "news_session_id") {
+            logger.debug("Using existing session ID: \(existing)")
             return existing
         } else {
             let newSession = UUID().uuidString
+            logger.info("Creating new session ID: \(newSession)")
+            
+            // UserDefaults operations don't throw errors, so no try-catch needed
             UserDefaults.standard.set(newSession, forKey: "news_session_id")
+            
+            // Verify it was saved correctly
+            if UserDefaults.standard.string(forKey: "news_session_id") == newSession {
+                logger.debug("Session ID saved successfully to UserDefaults")
+            } else {
+                logger.warning("Session ID may not have been saved properly to UserDefaults")
+            }
+            
             return newSession
         }
     }
     
+    init() {
+        logger.info("NewsViewModel initialized")
+        
+        // Log initial state
+//        logger.debug("Initial state - articles: \(articles.count), isLoading: \(isLoading), errorMessage: \(errorMessage ?? "nil"), selectedKeywords: \(selectedKeywords)")
+    }
+    
     func search(keyword: String) async {
-        if !selectedKeywords.contains(keyword) {
-            selectedKeywords.append(keyword)
+        logger.info("Search requested for keyword: \(keyword)")
+        
+        guard !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            logger.warning("Empty keyword provided to search function")
+            await MainActor.run {
+                self.errorMessage = "Please enter a valid search term"
+            }
+            return
         }
-        await fetchNews()
+        
+        if !self.selectedKeywords.contains(keyword) {
+            self.selectedKeywords.append(keyword)
+            logger.debug("Added keyword to selection: \(keyword), total keywords: \(self.selectedKeywords.count)")
+        } else {
+            logger.debug("Keyword already selected: \(keyword)")
+        }
+        
+        // Track timing for the entire search operation
+        let startTime = CFAbsoluteTimeGetCurrent()
+        await self.fetchNews()
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        
+        logger.info("Total search operation completed in \(String(format: "%.2f", duration))s")
     }
     
     func toggleKeyword(_ keyword: String) async {
-        if selectedKeywords.contains(keyword) {
-            selectedKeywords.removeAll { $0 == keyword }
-        } else {
-            selectedKeywords.append(keyword)
+        logger.info("Toggle requested for keyword: \(keyword)")
+        
+        guard !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            logger.warning("Attempted to toggle empty keyword")
+            return
         }
-        await fetchNews()
+        
+        if self.selectedKeywords.contains(keyword) {
+            logger.info("Removing keyword: \(keyword)")
+            self.selectedKeywords.removeAll { $0 == keyword }
+        } else {
+            logger.info("Adding keyword: \(keyword)")
+            self.selectedKeywords.append(keyword)
+        }
+        
+        logger.debug("Current keywords after toggle: \(self.selectedKeywords)")
+        
+        // Track timing for the entire toggle operation
+        let startTime = CFAbsoluteTimeGetCurrent()
+        await self.fetchNews()
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        
+        logger.info("Keyword toggle and fetch completed in \(String(format: "%.2f", duration))s")
     }
     
     private func fetchNews() async {
-        guard !selectedKeywords.isEmpty else {
+        guard !self.selectedKeywords.isEmpty else {
+            logger.info("No keywords selected, clearing articles")
             await MainActor.run { self.articles = [] }
             return
         }
         
-        let searchQuery = selectedKeywords.joined(separator: " ")
+        let searchQuery = self.selectedKeywords.joined(separator: " ")
+        logger.info("Fetching news with query: \(searchQuery)")
         
+        // Update UI to loading state
         await MainActor.run {
-            isLoading = true
-            errorMessage = nil
+            self.isLoading = true
+            self.errorMessage = nil
+            logger.debug("UI updated to loading state")
         }
         
         do {
-            let fetchedArticles = try await supabase.fetchNews(keyword: searchQuery, sessionId: sessionId)
+            logger.debug("Calling Supabase API for news fetch")
+            let startTime = CFAbsoluteTimeGetCurrent()
+            
+            let fetchedArticles: [Article]
+            do {
+                fetchedArticles = try await self.supabase.fetchNews(keyword: searchQuery, sessionId: self.sessionId, userId: self.userId)
+                logger.debug("News API called with userId: \(self.userId ?? "not available")")
+            } catch {
+                logger.error("Supabase API call failed: \(error.localizedDescription)")
+                
+                await MainActor.run {
+                    self.errorMessage = "Failed to fetch news: \(error.localizedDescription)"
+                    self.isLoading = false
+                    self.articles = [] // Clear articles on error
+                    logger.debug("UI updated with error state")
+                }
+                
+                return
+            }
+            
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            
+            logger.info("News fetch completed in \(String(format: "%.2f", duration))s, found \(fetchedArticles.count) articles")
+            
+            if fetchedArticles.isEmpty {
+                logger.info("No articles found for query: \(searchQuery)")
+            } else {
+                logger.debug("First article title: \(fetchedArticles.first?.title ?? "unknown")")
+                logger.debug("Last article title: \(fetchedArticles.last?.title ?? "unknown")")
+            }
+            
+            // Update UI with results
             await MainActor.run {
                 self.articles = fetchedArticles
                 self.isLoading = false
+                logger.debug("UI updated with fetched articles")
             }
         } catch {
+            // This should never happen since we caught the specific API error above
+            // But kept as a safety measure
+            logger.error("Unexpected error in fetchNews: \(error.localizedDescription)")
+            
             await MainActor.run {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
                 self.isLoading = false
+                self.articles = []
+                logger.debug("UI updated with unexpected error state")
             }
         }
     }
     
     func bookmark(article: Article) async {
-        guard let index = articles.firstIndex(where: { $0.id == article.id }) else { return }
+        logger.info("Bookmark operation requested for article: \(article.id)")
         
         do {
+            guard let index = self.articles.firstIndex(where: { $0.id == article.id }) else {
+                logger.warning("Attempted to bookmark article not found in collection: \(article.id)")
+                throw NewsViewModelError.articleNotFound(article.id)
+            }
+            
             if article.isBookmarked, let bookmarkId = article.bookmarkId {
-                try await supabase.removeBookmark(bookmarkId: bookmarkId)
-                await MainActor.run {
-                    var updated = article
-                    updated.isBookmarked = false
-                    updated.bookmarkId = nil
-                    articles[index] = updated
+                logger.info("Removing bookmark for article: \(article.id), bookmark ID: \(bookmarkId)")
+                
+                do {
+                    try await self.supabase.removeBookmark(bookmarkId: bookmarkId)
+                    logger.debug("Bookmark successfully removed from backend")
+                    
+                    await MainActor.run {
+                        var updated = article
+                        updated.isBookmarked = false
+                        updated.bookmarkId = nil
+                        self.articles[index] = updated
+                        logger.debug("Article updated after bookmark removal")
+                    }
+                } catch {
+                    logger.error("Failed to remove bookmark from backend: \(error.localizedDescription)")
+                    throw NewsViewModelError.bookmarkOperationFailed(error)
                 }
             } else {
-                let bookmarkId = try await supabase.addBookmark(newsId: article.id)
-                await MainActor.run {
-                    var updated = article
-                    updated.isBookmarked = true
-                    updated.bookmarkId = bookmarkId
-                    articles[index] = updated
+                logger.info("Adding bookmark for article: \(article.id)")
+                
+                do {
+                    let bookmarkId = try await self.supabase.addBookmark(newsId: article.id)
+                    logger.debug("Bookmark successfully added with ID: \(bookmarkId)")
+                    
+                    await MainActor.run {
+                        var updated = article
+                        updated.isBookmarked = true
+                        updated.bookmarkId = bookmarkId
+                        self.articles[index] = updated
+                        logger.debug("Article updated with new bookmark ID: \(bookmarkId)")
+                    }
+                } catch {
+                    logger.error("Failed to add bookmark on backend: \(error.localizedDescription)")
+                    throw NewsViewModelError.bookmarkOperationFailed(error)
                 }
             }
         } catch {
+            logger.error("Bookmark operation failed: \(error.localizedDescription)")
             await MainActor.run {
-                errorMessage = "Failed to update bookmark: \(error.localizedDescription)"
+                self.errorMessage = "Failed to update bookmark: \(error.localizedDescription)"
             }
         }
+    }
+    
+    // Set user ID method for when user logs in
+    func setUserId(_ id: String) {
+        logger.info("Setting user ID: \(id)")
+        UserDefaults.standard.set(id, forKey: "user_id")
+    }
+    
+    // Remove user ID method for logout
+    func clearUserId() {
+        logger.info("Clearing user ID")
+        UserDefaults.standard.removeObject(forKey: "user_id")
+    }
+    
+    // Add a cleanup method for proper lifecycle management
+    func cleanup() {
+        logger.info("NewsViewModel cleanup initiated")
+        // Perform any cleanup operations like cancelling subscriptions
+    }
+    
+    deinit {
+        logger.info("NewsViewModel is being deallocated")
     }
 }
