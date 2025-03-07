@@ -201,6 +201,7 @@ class SupabaseClient {
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.timeoutInterval = 30.0
         let startTime = CFAbsoluteTimeGetCurrent()
         
         do {
