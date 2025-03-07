@@ -13,6 +13,7 @@
 		B30C4FD32D76106A003CB1B3 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD22D76106A003CB1B3 /* Realtime */; };
 		B30C4FD52D76106A003CB1B3 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD42D76106A003CB1B3 /* Storage */; };
 		B30C4FD72D76106A003CB1B3 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B30C4FD62D76106A003CB1B3 /* Supabase */; };
+		B363EE9C2D7B54AD00B2DDA6 /* AppObserverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B363EE9B2D7B549C00B2DDA6 /* AppObserverView.swift */; };
 		B37D94452D7602C800F2A5D8 /* NewsFlowAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */; };
 		B37D94492D7602C800F2A5D8 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37D94482D7602C800F2A5D8 /* Item.swift */; };
 		B3F92A012D766CA400CC55AC /* Documentation.md in Resources */ = {isa = PBXBuildFile; fileRef = B3F92A002D766CA400CC55AC /* Documentation.md */; };
@@ -36,6 +37,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B363EE9B2D7B549C00B2DDA6 /* AppObserverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppObserverView.swift; sourceTree = "<group>"; };
 		B37D94412D7602C800F2A5D8 /* NewsFlowAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NewsFlowAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsFlowAIApp.swift; sourceTree = "<group>"; };
 		B37D94482D7602C800F2A5D8 /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
@@ -151,6 +153,7 @@
 				B37D94722D7603AD00F2A5D8 /* Views */,
 				B37D94752D7603DB00F2A5D8 /* Services */,
 				B37D94442D7602C800F2A5D8 /* NewsFlowAIApp.swift */,
+				B363EE9B2D7B549C00B2DDA6 /* AppObserverView.swift */,
 				B37D94482D7602C800F2A5D8 /* Item.swift */,
 			);
 			sourceTree = "<group>";
@@ -327,6 +330,7 @@
 			files = (
 				B37D94492D7602C800F2A5D8 /* Item.swift in Sources */,
 				B37D94452D7602C800F2A5D8 /* NewsFlowAIApp.swift in Sources */,
+				B363EE9C2D7B54AD00B2DDA6 /* AppObserverView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

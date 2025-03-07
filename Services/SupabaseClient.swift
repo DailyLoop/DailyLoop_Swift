@@ -215,6 +215,17 @@ class SupabaseClient {
                 logger.warning("Could not convert response data to string")
             }
             
+            // Check HTTP response code for the initial fetch
+            guard let httpResponse = response as? HTTPURLResponse else {
+                logger.error("Non-HTTP response received")
+                throw SupabaseClientError.responseError(0, "Non-HTTP response received")
+            }
+            
+            if httpResponse.statusCode != 200 {
+                logger.error("Server returned error code: \(httpResponse.statusCode)")
+                throw SupabaseClientError.responseError(httpResponse.statusCode, "Bad response from server")
+            }
+            
             // Process (summarize) articles fetched in this session
             logger.info("Processing articles for session: \(sessionId)")
             guard let processUrl = URL(string: "\(Config.API.baseURL)/api/news/process?session_id=\(sessionId)") else {
@@ -236,7 +247,10 @@ class SupabaseClient {
                let jsonData = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
                let jsonString = String(data: jsonData, encoding: .utf8) {
                 logger.debug("Processed data response: \(jsonString)")
+            } else {
+                logger.warning("Could not format processed data as JSON for logging")
             }
+            
             guard let processHttpResponse = processResponse as? HTTPURLResponse else {
                 logger.error("Non-HTTP response received from processing endpoint")
                 throw SupabaseClientError.responseError(0, "Non-HTTP response received from processing endpoint")
@@ -247,27 +261,55 @@ class SupabaseClient {
                 throw SupabaseClientError.responseError(processHttpResponse.statusCode, "Failed to process news")
             }
             
-            // Use the processed data for decoding instead of the original data
-            data = processedData
-            
             logger.info("Successfully processed articles data")
-
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                logger.error("Non-HTTP response received")
-                throw SupabaseClientError.responseError(0, "Non-HTTP response received")
-            }
-            
-            if httpResponse.statusCode != 200 {
-                logger.error("Server returned error code: \(httpResponse.statusCode)")
-                throw SupabaseClientError.responseError(httpResponse.statusCode, "Bad response from server")
-            }
             
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             
+            // Define a local struct to match the processed response format
+            struct ProcessedArticlesResponse: Codable {
+                let status: String
+                let message: String
+                let data: [Article]
+                let sessionId: String?
+                
+                enum CodingKeys: String, CodingKey {
+                    case status
+                    case message
+                    case data
+                    case sessionId = "session_id"
+                }
+            }
+            
             do {
-                let articles = try decoder.decode([Article].self, from: processedData)
+                // Try to decode the response with detailed error handling
+                let processedResponse: ProcessedArticlesResponse
+                do {
+                    processedResponse = try decoder.decode(ProcessedArticlesResponse.self, from: processedData)
+                } catch {
+                    // Enhanced error logging for decoding failures
+                    logger.error("Decoding error: \(error.localizedDescription)")
+                    
+                    if let decodingError = error as? DecodingError {
+                        switch decodingError {
+                        case .keyNotFound(let key, let context):
+                            logger.error("Key not found: \(key.stringValue), context: \(context.debugDescription)")
+                        case .typeMismatch(let type, let context):
+                            logger.error("Type mismatch: \(type), context: \(context.debugDescription)")
+                        case .valueNotFound(let type, let context):
+                            logger.error("Value not found: \(type), context: \(context.debugDescription)")
+                        case .dataCorrupted(let context):
+                            logger.error("Data corrupted: \(context.debugDescription)")
+                        @unknown default:
+                            logger.error("Unknown decoding error: \(decodingError)")
+                        }
+                    }
+                    
+                    throw SupabaseClientError.decodingError(error)
+                }
+                
+                // Extract articles from the response
+                let articles = processedResponse.data
                 logger.info("Successfully decoded \(articles.count) articles")
                 return articles
             } catch {
@@ -380,6 +422,17 @@ class SupabaseClient {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
+        // Add authentication token to the request
+        do {
+            let session = try await client.auth.session
+            let token = session.accessToken
+            logger.debug("Adding authentication token to request")
+            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } catch {
+            logger.warning("Failed to get authentication session: \(error.localizedDescription)")
+            logger.warning("Request may fail with 401 unauthorized")
+        }
+        
         do {
             logger.debug("Sending bookmarks GET request")
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -395,11 +448,23 @@ class SupabaseClient {
             }
             
             do {
+                // Add more detailed logging to debug response
+                if let responseString = String(data: data, encoding: .utf8) {
+                    logger.debug("Bookmarks response: \(responseString)")
+                }
+                
+                // Create a struct that matches the exact response format
+                struct BookmarksResponse: Codable {
+                    let status: String
+                    let data: [Article]
+                }
+                
                 let decoder = JSONDecoder()
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
-                let articles = try decoder.decode([Article].self, from: data)
-                logger.info("Successfully fetched \(articles.count) bookmarked articles")
-                return articles
+                
+                let response = try decoder.decode(BookmarksResponse.self, from: data)
+                logger.info("Successfully fetched \(response.data.count) bookmarked articles")
+                return response.data
             } catch {
                 logger.error("Failed to decode bookmarked articles: \(error.localizedDescription)")
                 throw SupabaseClientError.decodingError(error)

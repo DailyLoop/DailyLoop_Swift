@@ -30,6 +30,7 @@ enum NewsViewModelError: Error {
     }
 }
 
+@MainActor
 class NewsViewModel: ObservableObject {
     @Published var articles: [Article] = []
     @Published var isLoading = false
@@ -52,26 +53,18 @@ class NewsViewModel: ObservableObject {
         } else {
             let newSession = UUID().uuidString
             logger.info("Creating new session ID: \(newSession)")
-            
-            // UserDefaults operations don't throw errors, so no try-catch needed
             UserDefaults.standard.set(newSession, forKey: "news_session_id")
-            
-            // Verify it was saved correctly
             if UserDefaults.standard.string(forKey: "news_session_id") == newSession {
                 logger.debug("Session ID saved successfully to UserDefaults")
             } else {
                 logger.warning("Session ID may not have been saved properly to UserDefaults")
             }
-            
             return newSession
         }
     }
     
     init() {
         logger.info("NewsViewModel initialized")
-        
-        // Log initial state
-//        logger.debug("Initial state - articles: \(articles.count), isLoading: \(isLoading), errorMessage: \(errorMessage ?? "nil"), selectedKeywords: \(selectedKeywords)")
     }
     
     func search(keyword: String) async {
@@ -96,7 +89,6 @@ class NewsViewModel: ObservableObject {
         let startTime = CFAbsoluteTimeGetCurrent()
         await self.fetchNews()
         let duration = CFAbsoluteTimeGetCurrent() - startTime
-        
         logger.info("Total search operation completed in \(String(format: "%.2f", duration))s")
     }
     
@@ -122,7 +114,6 @@ class NewsViewModel: ObservableObject {
         let startTime = CFAbsoluteTimeGetCurrent()
         await self.fetchNews()
         let duration = CFAbsoluteTimeGetCurrent() - startTime
-        
         logger.info("Keyword toggle and fetch completed in \(String(format: "%.2f", duration))s")
     }
     
@@ -165,7 +156,6 @@ class NewsViewModel: ObservableObject {
             }
             
             let duration = CFAbsoluteTimeGetCurrent() - startTime
-            
             logger.info("News fetch completed in \(String(format: "%.2f", duration))s, found \(fetchedArticles.count) articles")
             
             if fetchedArticles.isEmpty {
@@ -181,18 +171,8 @@ class NewsViewModel: ObservableObject {
                 self.isLoading = false
                 logger.debug("UI updated with fetched articles")
             }
-        } catch {
-            // This should never happen since we caught the specific API error above
-            // But kept as a safety measure
-            logger.error("Unexpected error in fetchNews: \(error.localizedDescription)")
-            
-            await MainActor.run {
-                self.errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-                self.isLoading = false
-                self.articles = []
-                logger.debug("UI updated with unexpected error state")
-            }
         }
+        // Removed the outer catch block as it was unreachable due to the inner catch returning early.
     }
     
     func bookmark(article: Article) async {

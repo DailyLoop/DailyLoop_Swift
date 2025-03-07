@@ -9,6 +9,7 @@ import SwiftUI
 
 struct BookmarksView: View {
     @EnvironmentObject var bookmarkViewModel: BookmarkViewModel
+    @State private var hasAppeared = false  // Add this state variable
     
     var body: some View {
         Group {
@@ -53,8 +54,12 @@ struct BookmarksView: View {
         }
         .navigationTitle("Bookmarks")
         .onAppear {
-            Task {
-                await bookmarkViewModel.fetchBookmarks()
+            // Only fetch bookmarks the first time the view appears
+            if !hasAppeared {
+                hasAppeared = true
+                Task {
+                    await bookmarkViewModel.fetchBookmarks()
+                }
             }
         }
     }
