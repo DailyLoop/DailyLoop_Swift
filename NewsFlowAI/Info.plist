@@ -50,7 +50,7 @@
 
     <!-- NEW KEY: API_BASE_URL for your custom backend -->
     <key>API_BASE_URL</key>
-    <string>https://news-aggregator-99775608725.us-central1.run.app</string>
+    <string>https://dailylooppy-backend-99775608725.us-central1.run.app</string>
     
     <!-- Standard Info.plist keys -->
     <key>CFBundleDevelopmentRegion</key>
