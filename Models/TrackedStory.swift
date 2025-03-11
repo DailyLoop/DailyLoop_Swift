@@ -10,6 +10,8 @@ struct TrackedStory: Codable, Identifiable {
     let keyword: String
     let createdAt: String
     let lastUpdated: String
+    let isPolling: Bool?
+    let lastPolledAt: String?
     var articles: [Article]
     
     enum CodingKeys: String, CodingKey {
@@ -18,6 +20,8 @@ struct TrackedStory: Codable, Identifiable {
         case keyword
         case createdAt = "created_at"
         case lastUpdated = "last_updated"
+        case isPolling = "is_polling"
+        case lastPolledAt = "last_polled_at"
         case articles
     }
 }

@@ -1,5 +1,5 @@
 //
-// Services/NewsFlowSupabaseClient.swift
+// Services/SupabaseClient.swift
 //
 import Foundation
 import Supabase
@@ -62,6 +62,53 @@ class SupabaseClient {
             supabaseKey: supabaseKey
         )
         logger.info("SupabaseClient successfully initialized")
+    }
+    
+    // Helper method to add authentication header to requests
+    private func addAuthHeaderToRequest(_ request: inout URLRequest) async {
+        do {
+            let session = try await client.auth.session
+            let token = session.accessToken
+            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            logger.debug("Added authentication token to request")
+        } catch {
+            logger.warning("Failed to get authentication session: \(error.localizedDescription)")
+            logger.warning("Request may fail with 401 unauthorized")
+        }
+    }
+    
+    // MARK: - Health Check
+    
+    func checkApiHealth() async throws -> Bool {
+        logger.info("Checking API health")
+        
+        guard let url = URL(string: "\(Config.API.baseURL)/health") else {
+            logger.error("Invalid URL for health check: \(Config.API.baseURL)/health")
+            throw SupabaseClientError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                logger.error("Non-HTTP response received")
+                return false
+            }
+            
+            if httpResponse.statusCode == 200 {
+                logger.info("API health check successful")
+                return true
+            } else {
+                logger.error("API health check failed with status: \(httpResponse.statusCode)")
+                return false
+            }
+        } catch {
+            logger.error("API health check failed with error: \(error.localizedDescription)")
+            throw SupabaseClientError.networkError(error)
+        }
     }
     
     // MARK: - Authentication Methods
@@ -175,7 +222,76 @@ class SupabaseClient {
         }
     }
     
+    // MARK: - User Profile Methods
+    
+    func getUserProfile() async throws -> User {
+        logger.info("Fetching user profile")
+        
+        guard let url = URL(string: "\(Config.API.baseURL)/api/user/profile") else {
+            logger.error("Invalid URL for getUserProfile: \(Config.API.baseURL)/api/user/profile")
+            throw SupabaseClientError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        // Add authentication token to the request
+        await addAuthHeaderToRequest(&request)
+        
+        do {
+            logger.debug("Sending profile GET request")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                logger.error("Non-HTTP response received")
+                throw SupabaseClientError.responseError(0, "Non-HTTP response received")
+            }
+            
+            if httpResponse.statusCode != 200 {
+                logger.error("Failed to get user profile, server returned: \(httpResponse.statusCode)")
+                throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to get user profile")
+            }
+            
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
+            do {
+                let user = try decoder.decode(User.self, from: data)
+                logger.info("Successfully fetched user profile for ID: \(user.id)")
+                return user
+            } catch {
+                logger.error("Failed to decode user profile: \(error.localizedDescription)")
+                throw SupabaseClientError.decodingError(error)
+            }
+        } catch let error as SupabaseClientError {
+            throw error
+        } catch {
+            logger.error("Network error while fetching user profile: \(error.localizedDescription)")
+            throw SupabaseClientError.networkError(error)
+        }
+    }
+    
     // MARK: - News API Methods
+    
+    struct NewsResponse: Codable {
+        let status: String
+        let data: [String] // article_ids
+    }
+    
+    struct ProcessedArticlesResponse: Codable {
+        let status: String
+        let message: String
+        let data: [Article]
+        let sessionId: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case status
+            case message
+            case data
+            case sessionId = "session_id"
+        }
+    }
+    
     func fetchNews(keyword: String, sessionId: String, userId: String? = nil) async throws -> [Article] {
         logger.info("Fetching news with keyword: \(keyword), sessionId: \(sessionId), userId: \(userId ?? "not provided")")
         
@@ -202,6 +318,12 @@ class SupabaseClient {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 30.0
+        
+        // Add auth header if user is logged in
+        if userId != nil {
+            await addAuthHeaderToRequest(&request)
+        }
+        
         let startTime = CFAbsoluteTimeGetCurrent()
         
         do {
@@ -238,6 +360,11 @@ class SupabaseClient {
             processRequest.httpMethod = "POST"
             processRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
             
+            // Add auth header if user is logged in
+            if userId != nil {
+                await addAuthHeaderToRequest(&processRequest)
+            }
+            
             let processStartTime = CFAbsoluteTimeGetCurrent()
             let (processedData, processResponse) = try await URLSession.shared.data(for: processRequest)
             let processEndTime = CFAbsoluteTimeGetCurrent()
@@ -266,21 +393,6 @@ class SupabaseClient {
             
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            // Define a local struct to match the processed response format
-            struct ProcessedArticlesResponse: Codable {
-                let status: String
-                let message: String
-                let data: [Article]
-                let sessionId: String?
-                
-                enum CodingKeys: String, CodingKey {
-                    case status
-                    case message
-                    case data
-                    case sessionId = "session_id"
-                }
-            }
             
             do {
                 // Try to decode the response with detailed error handling
@@ -325,6 +437,15 @@ class SupabaseClient {
         }
     }
     
+    // Version that returns session ID as well
+    func fetchNewsWithMetadata(keyword: String, sessionId: String, userId: String? = nil) async throws -> (articles: [Article], sessionId: String?) {
+        logger.info("Fetching news with metadata for keyword: \(keyword)")
+        
+        let articles = try await fetchNews(keyword: keyword, sessionId: sessionId, userId: userId)
+        
+        return (articles, sessionId)
+    }
+    
     // MARK: - Bookmark Methods
     func addBookmark(newsId: String) async throws -> String {
         logger.info("Adding bookmark for news ID: \(newsId)")
@@ -337,6 +458,9 @@ class SupabaseClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add auth header
+        await addAuthHeaderToRequest(&request)
         
         let body: [String: Any] = ["news_id": newsId]
         
@@ -351,21 +475,26 @@ class SupabaseClient {
                 throw SupabaseClientError.responseError(0, "Non-HTTP response received")
             }
             
-            if httpResponse.statusCode != 200 {
+            if httpResponse.statusCode != 201 && httpResponse.statusCode != 200 {
                 logger.error("Failed to add bookmark, server returned: \(httpResponse.statusCode)")
                 throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to add bookmark")
             }
             
             do {
+                // Parse the response to get bookmark ID
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
                 
-                guard let bookmarkId = json?["data"] as? String else {
+                if let data = json?["data"] as? [String: Any], let bookmarkId = data["bookmark_id"] as? String {
+                    logger.info("Successfully added bookmark with ID: \(bookmarkId)")
+                    return bookmarkId
+                } else if let data = json?["data"] as? String {
+                    // Alternative format
+                    logger.info("Successfully added bookmark with ID: \(data)")
+                    return data
+                } else {
                     logger.error("Missing bookmarkId in response")
                     throw SupabaseClientError.missingData
                 }
-                
-                logger.info("Successfully added bookmark with ID: \(bookmarkId)")
-                return bookmarkId
             } catch {
                 logger.error("Failed to parse bookmark response: \(error.localizedDescription)")
                 throw SupabaseClientError.decodingError(error)
@@ -388,6 +517,9 @@ class SupabaseClient {
         
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
+        
+        // Add auth header
+        await addAuthHeaderToRequest(&request)
         
         do {
             logger.debug("Sending bookmark DELETE request")
@@ -423,16 +555,8 @@ class SupabaseClient {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        // Add authentication token to the request
-        do {
-            let session = try await client.auth.session
-            let token = session.accessToken
-            logger.debug("Adding authentication token to request")
-            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } catch {
-            logger.warning("Failed to get authentication session: \(error.localizedDescription)")
-            logger.warning("Request may fail with 401 unauthorized")
-        }
+        // Add authentication token
+        await addAuthHeaderToRequest(&request)
         
         do {
             logger.debug("Sending bookmarks GET request")
@@ -478,6 +602,26 @@ class SupabaseClient {
         }
     }
     
+    func checkBookmarkStatus(articleId: String) async throws -> String? {
+        logger.info("Checking bookmark status for article ID: \(articleId)")
+        
+        do {
+            let bookmarks = try await getBookmarks()
+            let bookmarkedArticle = bookmarks.first(where: { $0.id == articleId })
+            
+            if let bookmarkId = bookmarkedArticle?.bookmarkId {
+                logger.info("Article is bookmarked with ID: \(bookmarkId)")
+                return bookmarkId
+            } else {
+                logger.info("Article is not bookmarked")
+                return nil
+            }
+        } catch {
+            logger.error("Error checking bookmark status: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
     // MARK: - Summarization
     func fetchSummary(for articleText: String) async throws -> String {
         logger.info("Requesting summary for article text (\(articleText.count) characters)")
@@ -490,6 +634,9 @@ class SupabaseClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add auth header if available
+        await addAuthHeaderToRequest(&request)
         
         let body = ["article_text": articleText]
         
@@ -542,6 +689,11 @@ class SupabaseClient {
         let data: TrackedStory
     }
     
+    struct TrackedStoriesResponse: Codable {
+        let status: String
+        let data: [TrackedStory]
+    }
+    
     func fetchTrackedStories() async throws -> [TrackedStory] {
         logger.info("Fetching tracked stories")
         
@@ -552,6 +704,9 @@ class SupabaseClient {
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        
+        // Add auth header
+        await addAuthHeaderToRequest(&request)
         
         do {
             logger.debug("Sending tracked stories GET request")
@@ -570,9 +725,10 @@ class SupabaseClient {
             do {
                 let decoder = JSONDecoder()
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
-                let stories = try decoder.decode([TrackedStory].self, from: data)
-                logger.info("Successfully fetched \(stories.count) tracked stories")
-                return stories
+                
+                let response = try decoder.decode(TrackedStoriesResponse.self, from: data)
+                logger.info("Successfully fetched \(response.data.count) tracked stories")
+                return response.data
             } catch {
                 logger.error("Failed to decode tracked stories: \(error.localizedDescription)")
                 throw SupabaseClientError.decodingError(error)
@@ -597,10 +753,13 @@ class SupabaseClient {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let body: [String: Any] = [
-            "keyword": keyword,
-            "sourceArticleId": sourceArticleId ?? ""
-        ]
+        // Add auth header
+        await addAuthHeaderToRequest(&request)
+        
+        var body: [String: Any] = ["keyword": keyword]
+        if let sourceArticleId = sourceArticleId {
+            body["sourceArticleId"] = sourceArticleId
+        }
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -613,60 +772,161 @@ class SupabaseClient {
                 throw SupabaseClientError.responseError(0, "Non-HTTP response received")
             }
             
-            if httpResponse.statusCode != 201 {
-                logger.error("Failed to create tracked story, server returned: \(httpResponse.statusCode)")
-                throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to create tracked story")
+            if httpResponse.statusCode != 201 && httpResponse.statusCode != 200 {
+                            logger.error("Failed to create tracked story, server returned: \(httpResponse.statusCode)")
+                            throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to create tracked story")
+                        }
+                        
+                        do {
+                            let decoder = JSONDecoder()
+                            decoder.keyDecodingStrategy = .convertFromSnakeCase
+                            let trackedStoryResponse = try decoder.decode(TrackedStoryResponse.self, from: data)
+                            logger.info("Successfully created tracked story with ID: \(trackedStoryResponse.data.id)")
+                            return trackedStoryResponse.data
+                        } catch {
+                            logger.error("Failed to decode tracked story response: \(error.localizedDescription)")
+                            throw SupabaseClientError.decodingError(error)
+                        }
+                    } catch let error as SupabaseClientError {
+                        throw error
+                    } catch {
+                        logger.error("Network error while creating tracked story: \(error.localizedDescription)")
+                        throw SupabaseClientError.networkError(error)
+                    }
+                }
+                
+                func deleteTrackedStory(storyId: String) async throws {
+                    logger.info("Deleting tracked story with ID: \(storyId)")
+                    
+                    guard let url = URL(string: "\(Config.API.baseURL)/api/story_tracking/\(storyId)") else {
+                        logger.error("Invalid URL for deleteTrackedStory: \(Config.API.baseURL)/api/story_tracking/\(storyId)")
+                        throw SupabaseClientError.invalidURL
+                    }
+                    
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "DELETE"
+                    
+                    // Add auth header
+                    await addAuthHeaderToRequest(&request)
+                    
+                    do {
+                        logger.debug("Sending tracked story DELETE request")
+                        let (_, response) = try await URLSession.shared.data(for: request)
+                        
+                        guard let httpResponse = response as? HTTPURLResponse else {
+                            logger.error("Non-HTTP response received")
+                            throw SupabaseClientError.responseError(0, "Non-HTTP response received")
+                        }
+                        
+                        if httpResponse.statusCode != 200 {
+                            logger.error("Failed to delete tracked story, server returned: \(httpResponse.statusCode)")
+                            throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to delete tracked story")
+                        }
+                        
+                        logger.info("Successfully deleted tracked story")
+                    } catch let error as SupabaseClientError {
+                        throw error
+                    } catch {
+                        logger.error("Network error while deleting tracked story: \(error.localizedDescription)")
+                        throw SupabaseClientError.networkError(error)
+                    }
+                }
+                
+                func toggleStoryPolling(storyId: String, enable: Bool) async throws -> TrackedStory {
+                    logger.info("\(enable ? "Enabling" : "Disabling") polling for story: \(storyId)")
+                    
+                    let endpoint = enable ? "/api/story_tracking/start" : "/api/story_tracking/stop"
+                    guard let url = URL(string: "\(Config.API.baseURL)\(endpoint)") else {
+                        logger.error("Invalid URL for toggle polling: \(Config.API.baseURL)\(endpoint)")
+                        throw SupabaseClientError.invalidURL
+                    }
+                    
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "POST"
+                    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+                    
+                    // Add auth header
+                    await addAuthHeaderToRequest(&request)
+                    
+                    let body = ["story_id": storyId]
+                    
+                    do {
+                        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+                        logger.debug("Sending toggle polling POST request")
+                        
+                        let (data, response) = try await URLSession.shared.data(for: request)
+                        
+                        guard let httpResponse = response as? HTTPURLResponse else {
+                            logger.error("Non-HTTP response received")
+                            throw SupabaseClientError.responseError(0, "Non-HTTP response received")
+                        }
+                        
+                        if httpResponse.statusCode != 200 {
+                            logger.error("Failed to toggle polling, server returned: \(httpResponse.statusCode)")
+                            throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to toggle polling")
+                        }
+                        
+                        do {
+                            let decoder = JSONDecoder()
+                            decoder.keyDecodingStrategy = .convertFromSnakeCase
+                            let response = try decoder.decode(TrackedStoryResponse.self, from: data)
+                            logger.info("Successfully toggled polling for story")
+                            return response.data
+                        } catch {
+                            logger.error("Failed to decode toggle polling response: \(error.localizedDescription)")
+                            throw SupabaseClientError.decodingError(error)
+                        }
+                    } catch let error as SupabaseClientError {
+                        throw error
+                    } catch {
+                        logger.error("Network error while toggling polling: \(error.localizedDescription)")
+                        throw SupabaseClientError.networkError(error)
+                    }
+                }
+                
+                func getStoryDetails(storyId: String) async throws -> TrackedStory {
+                    logger.info("Getting details for story: \(storyId)")
+                    
+                    guard let url = URL(string: "\(Config.API.baseURL)/api/story_tracking/\(storyId)") else {
+                        logger.error("Invalid URL for getStoryDetails: \(Config.API.baseURL)/api/story_tracking/\(storyId)")
+                        throw SupabaseClientError.invalidURL
+                    }
+                    
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "GET"
+                    
+                    // Add auth header
+                    await addAuthHeaderToRequest(&request)
+                    
+                    do {
+                        logger.debug("Sending story details GET request")
+                        let (data, response) = try await URLSession.shared.data(for: request)
+                        
+                        guard let httpResponse = response as? HTTPURLResponse else {
+                            logger.error("Non-HTTP response received")
+                            throw SupabaseClientError.responseError(0, "Non-HTTP response received")
+                        }
+                        
+                        if httpResponse.statusCode != 200 {
+                            logger.error("Failed to get story details, server returned: \(httpResponse.statusCode)")
+                            throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to get story details")
+                        }
+                        
+                        do {
+                            let decoder = JSONDecoder()
+                            decoder.keyDecodingStrategy = .convertFromSnakeCase
+                            let response = try decoder.decode(TrackedStoryResponse.self, from: data)
+                            logger.info("Successfully fetched story details")
+                            return response.data
+                        } catch {
+                            logger.error("Failed to decode story details: \(error.localizedDescription)")
+                            throw SupabaseClientError.decodingError(error)
+                        }
+                    } catch let error as SupabaseClientError {
+                        throw error
+                    } catch {
+                        logger.error("Network error while getting story details: \(error.localizedDescription)")
+                        throw SupabaseClientError.networkError(error)
+                    }
+                }
             }
-            
-            do {
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
-                let trackedStoryResponse = try decoder.decode(TrackedStoryResponse.self, from: data)
-                logger.info("Successfully created tracked story with ID: \(trackedStoryResponse.data.id)")
-                return trackedStoryResponse.data
-            } catch {
-                logger.error("Failed to decode tracked story response: \(error.localizedDescription)")
-                throw SupabaseClientError.decodingError(error)
-            }
-        } catch let error as SupabaseClientError {
-            throw error
-        } catch {
-            logger.error("Network error while creating tracked story: \(error.localizedDescription)")
-            throw SupabaseClientError.networkError(error)
-        }
-    }
-    
-    func deleteTrackedStory(storyId: String) async throws {
-        logger.info("Deleting tracked story with ID: \(storyId)")
-        
-        guard let url = URL(string: "\(Config.API.baseURL)/api/story_tracking/\(storyId)") else {
-            logger.error("Invalid URL for deleteTrackedStory: \(Config.API.baseURL)/api/story_tracking/\(storyId)")
-            throw SupabaseClientError.invalidURL
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        
-        do {
-            logger.debug("Sending tracked story DELETE request")
-            let (_, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                logger.error("Non-HTTP response received")
-                throw SupabaseClientError.responseError(0, "Non-HTTP response received")
-            }
-            
-            if httpResponse.statusCode != 200 {
-                logger.error("Failed to delete tracked story, server returned: \(httpResponse.statusCode)")
-                throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to delete tracked story")
-            }
-            
-            logger.info("Successfully deleted tracked story")
-        } catch let error as SupabaseClientError {
-            throw error
-        } catch {
-            logger.error("Network error while deleting tracked story: \(error.localizedDescription)")
-            throw SupabaseClientError.networkError(error)
-        }
-    }
-}

@@ -36,6 +36,7 @@ class NewsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var selectedKeywords: [String] = []
+    @Published var isHealthy = true
     
     private let supabase = SupabaseClient.shared
     private let logger = Logger(subsystem: "com.newsflowai.app", category: "NewsViewModel")
@@ -65,6 +66,26 @@ class NewsViewModel: ObservableObject {
     
     init() {
         logger.info("NewsViewModel initialized")
+        
+        // Check API health
+        Task {
+            await checkApiHealth()
+        }
+    }
+    
+    func checkApiHealth() async {
+        do {
+            let healthy = try await supabase.checkApiHealth()
+            await MainActor.run {
+                self.isHealthy = healthy
+            }
+            logger.info("API health check: \(healthy ? "OK" : "Unhealthy")")
+        } catch {
+            await MainActor.run {
+                self.isHealthy = false
+            }
+            logger.warning("API health check failed: \(error.localizedDescription)")
+        }
     }
     
     func search(keyword: String) async {
@@ -140,7 +161,13 @@ class NewsViewModel: ObservableObject {
             
             let fetchedArticles: [Article]
             do {
-                fetchedArticles = try await self.supabase.fetchNews(keyword: searchQuery, sessionId: self.sessionId, userId: self.userId)
+                // Use the version that returns metadata
+                let (articles, _) = try await self.supabase.fetchNewsWithMetadata(
+                    keyword: searchQuery,
+                    sessionId: self.sessionId,
+                    userId: self.userId
+                )
+                fetchedArticles = articles
                 logger.debug("News API called with userId: \(self.userId ?? "not available")")
             } catch {
                 logger.error("Supabase API call failed: \(error.localizedDescription)")
@@ -172,7 +199,6 @@ class NewsViewModel: ObservableObject {
                 logger.debug("UI updated with fetched articles")
             }
         }
-        // Removed the outer catch block as it was unreachable due to the inner catch returning early.
     }
     
     func bookmark(article: Article) async {
@@ -239,6 +265,18 @@ class NewsViewModel: ObservableObject {
     func clearUserId() {
         logger.info("Clearing user ID")
         UserDefaults.standard.removeObject(forKey: "user_id")
+    }
+    
+    // Add a method to get summary for an article text
+    func getSummary(for text: String) async throws -> String {
+        logger.info("Getting summary for text of length \(text.count)")
+        do {
+            let summary = try await supabase.fetchSummary(for: text)
+            return summary
+        } catch {
+            logger.error("Error getting summary: \(error.localizedDescription)")
+            throw error
+        }
     }
     
     // Add a cleanup method for proper lifecycle management

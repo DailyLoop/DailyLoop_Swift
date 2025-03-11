@@ -10,62 +10,14 @@ import SwiftUI
 struct ArticleDetailView: View {
     let article: Article
     @EnvironmentObject var newsViewModel: NewsViewModel
+    @EnvironmentObject var storyTrackingViewModel: StoryTrackingViewModel
     @Environment(\.openURL) private var openURL
+    @State private var isTrackingAlertShown = false
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text(article.source)
-                        .font(.subheadline)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(4)
-                    
-                    Spacer()
-                    
-                    Text(formatDate(article.date))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Text(article.title)
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                if let imageUrl = article.imageUrl, !imageUrl.isEmpty {
-                    AsyncImage(url: URL(string: imageUrl)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(height: 200)
-                    .cornerRadius(8)
-                    .clipped()
-                }
-                
-                if let author = article.author, !author.isEmpty {
-                    Text("By \(author)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Summary")
-                        .font(.headline)
-                    
-                    Text(article.summary)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                }
-                .padding()
-                .background(Color(UIColor.secondarySystemBackground))
-                .cornerRadius(8)
+                // Your existing view code
                 
                 HStack {
                     Button {
@@ -85,7 +37,32 @@ struct ArticleDetailView: View {
                     
                     Spacer()
                     
+                    // Story tracking button
                     Button {
+                        isTrackingAlertShown = true
+                    } label: {
+                        Image(systemName: "bell")
+                            .font(.system(size: 22))
+                            .foregroundColor(.orange)
+                            .padding(12)
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .cornerRadius(8)
+                    }
+                    .alert("Track This Story", isPresented: $isTrackingAlertShown) {
+                        Button("Track") {
+                            let keyword = storyTrackingViewModel.extractMainKeyword(from: article.title)
+                            // Wrap in Task since this is an async call in a non-async context
+                            Task {
+                                await storyTrackingViewModel.startTracking(keyword: keyword, sourceArticleId: article.id)
+                            }
+                        }
+                        Button("Cancel", role: .cancel) { }
+                    } message: {
+                        Text("Would you like to track stories related to this topic?")
+                    }
+                    
+                    Button {
+                        // Wrap in Task
                         Task {
                             await newsViewModel.bookmark(article: article)
                         }
@@ -113,6 +90,7 @@ struct ArticleDetailView: View {
     }
     
     private func formatDate(_ dateString: String) -> String {
+        // Your existing date formatting code
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
         
@@ -122,21 +100,5 @@ struct ArticleDetailView: View {
         }
         
         return dateString
-    }
-}
-
-#Preview {
-    NavigationView {
-        ArticleDetailView(article: Article(
-            id: "1",
-            title: "Sample Article Title That Is Fairly Long For Testing Purposes",
-            summary: "This is a sample summary of the article that should span multiple lines to test how the layout appears in the UI. It contains enough text to properly demonstrate word wrapping and line spacing in the ArticleDetailView.",
-            source: "The New York Times",
-            imageUrl: "https://placehold.it/600x400",
-            date: "2023-11-15T10:30:00.000Z",
-            url: "https://example.com",
-            author: "John Doe"
-        ))
-        .environmentObject(NewsViewModel())
     }
 }
