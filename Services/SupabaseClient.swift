@@ -348,6 +348,13 @@ class SupabaseClient {
                 logger.error("Server returned error code: \(httpResponse.statusCode)")
                 throw SupabaseClientError.responseError(httpResponse.statusCode, "Bad response from server")
             }
+
+            // Decode the fetch response to get article IDs
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let fetchResponse = try decoder.decode(NewsResponse.self, from: data)
+            let articleIds = fetchResponse.data
+            logger.info("Fetched \(articleIds.count) article IDs")
             
             // Process (summarize) articles fetched in this session
             logger.info("Processing articles for session: \(sessionId)")
@@ -359,6 +366,16 @@ class SupabaseClient {
             var processRequest = URLRequest(url: processUrl)
             processRequest.httpMethod = "POST"
             processRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            // Add article_ids to the request body
+            let processBody = ["article_ids": articleIds]
+            do {
+                processRequest.httpBody = try JSONSerialization.data(withJSONObject: processBody)
+                logger.debug("Process request body: \(processBody)")
+            } catch {
+                logger.error("Failed to serialize process request body: \(error.localizedDescription)")
+                throw SupabaseClientError.unexpectedError("Failed to prepare process request")
+            }
             
             // Add auth header if user is logged in
             if userId != nil {
@@ -391,8 +408,8 @@ class SupabaseClient {
             
             logger.info("Successfully processed articles data")
             
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            // let decoder = JSONDecoder()
+            // decoder.keyDecodingStrategy = .convertFromSnakeCase
             
             do {
                 // Try to decode the response with detailed error handling
