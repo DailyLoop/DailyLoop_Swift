@@ -1,10 +1,3 @@
-//
-//  ArticleDetailView.swift
-//  NewsFlowAI
-//
-//  Created by Akalpit Dawkhar on 3/3/25.
-//
-
 import SwiftUI
 
 struct ArticleDetailView: View {
@@ -13,31 +6,65 @@ struct ArticleDetailView: View {
     @EnvironmentObject var storyTrackingViewModel: StoryTrackingViewModel
     @Environment(\.openURL) private var openURL
     @State private var isTrackingAlertShown = false
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Your existing view code
+                // Article image
+                if let imageUrl = article.imageUrl,
+                   let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 250)
+                            .clipped()
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 250)
+                    }
+                }
                 
+                // Article title
+                Text(article.title)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal)
+                
+                // Meta data: source and date
                 HStack {
+                    Text(article.source)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(formatDate(article.date))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                
+                // Article summary
+                Text(article.summary)
+                    .font(.body)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal)
+                
+                // Action buttons
+                HStack(spacing: 16) {
                     Button {
                         if let url = URL(string: article.url) {
                             openURL(url)
                         }
                     } label: {
-                        HStack {
-                            Image(systemName: "safari")
-                            Text("Read full article")
-                        }
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
+                        Label("Read Full Article", systemImage: "safari")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                     }
                     
-                    Spacer()
-                    
-                    // Story tracking button
                     Button {
                         isTrackingAlertShown = true
                     } label: {
@@ -51,7 +78,6 @@ struct ArticleDetailView: View {
                     .alert("Track This Story", isPresented: $isTrackingAlertShown) {
                         Button("Track") {
                             let keyword = storyTrackingViewModel.extractMainKeyword(from: article.title)
-                            // Wrap in Task since this is an async call in a non-async context
                             Task {
                                 await storyTrackingViewModel.startTracking(keyword: keyword, sourceArticleId: article.id)
                             }
@@ -62,7 +88,6 @@ struct ArticleDetailView: View {
                     }
                     
                     Button {
-                        // Wrap in Task
                         Task {
                             await newsViewModel.bookmark(article: article)
                         }
@@ -75,8 +100,9 @@ struct ArticleDetailView: View {
                             .cornerRadius(8)
                     }
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
-            .padding()
         }
         .navigationTitle("Article")
         .navigationBarTitleDisplayMode(.inline)
@@ -90,15 +116,12 @@ struct ArticleDetailView: View {
     }
     
     private func formatDate(_ dateString: String) -> String {
-        // Your existing date formatting code
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        
-        if let date = dateFormatter.date(from: dateString) {
-            dateFormatter.dateFormat = "MMM d, yyyy"
-            return dateFormatter.string(from: date)
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .medium
+            return displayFormatter.string(from: date)
         }
-        
         return dateString
     }
 }
