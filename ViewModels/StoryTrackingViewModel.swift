@@ -16,11 +16,17 @@ class StoryTrackingViewModel: ObservableObject {
     @Published var activeStoryId: String?
 
     private var pollCancellable: AnyCancellable?
+    private var fetchTask: Task<Void, Never>? = nil
+    private var lastFetchTime: Date? = nil
+    private let fetchDebounceInterval: TimeInterval = 5.0 // 5 seconds debounce
     private let logger = Logger(subsystem: "com.newsflowai.app", category: "StoryTrackingViewModel")
 
     // Start polling every 3 minutes (180 seconds)
     func startPolling() {
         logger.info("Starting polling for story updates")
+        // Cancel any existing polling
+        stopPolling()
+        
         pollCancellable = Timer.publish(every: 180, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -34,26 +40,77 @@ class StoryTrackingViewModel: ObservableObject {
     func stopPolling() {
         logger.info("Stopping polling for story updates")
         pollCancellable?.cancel()
+        pollCancellable = nil
     }
 
-    // Fetch all tracked stories from your backend
+    // Fetch all tracked stories from your backend with debouncing
     @MainActor
     func fetchTrackedStories() async {
-        do {
-            self.isLoading = true
-            self.errorMessage = nil
-
-            logger.info("Fetching tracked stories from backend")
-            let stories = try await SupabaseClient.shared.fetchTrackedStories()
-
-            self.trackedStories = stories
-            self.isLoading = false
-            logger.info("Fetched \(stories.count) tracked stories")
-        } catch {
-            self.errorMessage = error.localizedDescription
-            self.isLoading = false
-            logger.error("Error fetching tracked stories: \(error.localizedDescription)")
+        // Cancel any existing fetch task properly
+        if let existingTask = fetchTask {
+            existingTask.cancel()
+            // Wait a moment for the task to actually cancel
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
+        
+        // Check if we've fetched recently to avoid excessive API calls
+        if let lastTime = lastFetchTime, Date().timeIntervalSince(lastTime) < self.fetchDebounceInterval {
+            logger.info("Skipping fetch - last fetch was less than \(self.fetchDebounceInterval) seconds ago")
+            return
+        }
+        
+        // Create a new task for this fetch operation
+        let newTask = Task {
+            do {
+                // Only set loading state if we're not already loading
+                if !self.isLoading {
+                    self.isLoading = true
+                }
+                self.errorMessage = nil
+                
+                logger.info("Fetching tracked stories from backend")
+                
+                // Check for cancellation before making the network call
+                if Task.isCancelled { 
+                    logger.info("Task cancelled before network call")
+                    return 
+                }
+                
+                // Use a dedicated task for the network call that can be properly cancelled
+                let stories = try await withTaskCancellationHandler {
+                    try await SupabaseClient.shared.fetchTrackedStories()
+                } onCancel: {
+                    logger.info("Network call cancelled")
+                }
+                
+                // Update last fetch time
+                self.lastFetchTime = Date()
+                
+                // Check for cancellation again after the network call
+                if Task.isCancelled { 
+                    logger.info("Task cancelled after network call")
+                    return 
+                }
+                
+                self.trackedStories = stories
+                self.isLoading = false
+                logger.info("Fetched \(stories.count) tracked stories")
+            } catch is CancellationError {
+                logger.info("Fetch operation was cancelled")
+                // Don't update UI state if cancelled
+            } catch {
+                // Only update if the task hasn't been cancelled
+                if !Task.isCancelled {
+                    // Don't clear existing stories on error
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                    logger.error("Error fetching tracked stories: \(error.localizedDescription)")
+                }
+            }
+        }
+        
+        // Store the new task
+        fetchTask = newTask
     }
 
     @MainActor
@@ -126,9 +183,18 @@ class StoryTrackingViewModel: ObservableObject {
     
     @MainActor
     func refreshStory(storyId: String) async {
+        // Check if we've fetched recently to avoid excessive API calls
+        if let lastTime = lastFetchTime, Date().timeIntervalSince(lastTime) < self.fetchDebounceInterval {
+            logger.info("Skipping refresh - last fetch was less than \(self.fetchDebounceInterval) seconds ago")
+            return
+        }
+        
         do {
             logger.debug("Fetching story details from backend")
             let story = try await SupabaseClient.shared.getStoryDetails(storyId: storyId)
+            
+            // Update last fetch time
+            self.lastFetchTime = Date()
             
             if let index = self.trackedStories.firstIndex(where: { $0.id == storyId }) {
                 self.trackedStories[index] = story

@@ -91,7 +91,7 @@ class SupabaseClient {
         request.httpMethod = "GET"
         
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 logger.error("Non-HTTP response received")
@@ -739,19 +739,58 @@ class SupabaseClient {
                 throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to fetch tracked stories")
             }
             
+            // Check if data is empty or too small to be valid
+            if data.isEmpty {
+                logger.warning("Received empty data from server")
+                return [] // Return empty array instead of throwing an error
+            }
+            
+            // Log the raw response for debugging
+            if let jsonString = String(data: data, encoding: .utf8) {
+                logger.debug("Raw response: \(jsonString)")
+            }
+            
+            // Create a decoder with the appropriate configuration
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
+            // Try multiple approaches to decode the response
             do {
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
-                
+                // First try the standard response structure
                 let response = try decoder.decode(TrackedStoriesResponse.self, from: data)
                 logger.info("Successfully fetched \(response.data.count) tracked stories")
                 return response.data
-            } catch {
-                logger.error("Failed to decode tracked stories: \(error.localizedDescription)")
-                throw SupabaseClientError.decodingError(error)
+            } catch let standardError {
+                logger.warning("Standard response decoding failed: \(standardError.localizedDescription)")
+                
+                // Try to extract and decode just the data array if possible
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let dataArray = json["data"] as? [[String: Any]],
+                   let dataData = try? JSONSerialization.data(withJSONObject: dataArray) {
+                    do {
+                        let stories = try decoder.decode([TrackedStory].self, from: dataData)
+                        logger.info("Successfully decoded \(stories.count) stories from extracted data array")
+                        return stories
+                    } catch let dataArrayError {
+                        logger.warning("Data array decoding failed: \(dataArrayError.localizedDescription)")
+                    }
+                }
+                
+                // Last resort: try to decode as a simple array
+                do {
+                    let stories = try decoder.decode([TrackedStory].self, from: data)
+                    logger.info("Decoded \(stories.count) stories as direct array")
+                    return stories
+                } catch let arrayError {
+                    logger.error("All decoding attempts failed. Last error: \(arrayError.localizedDescription)")
+                    throw SupabaseClientError.decodingError(arrayError)
+                }
             }
         } catch let error as SupabaseClientError {
             throw error
+        } catch let error as URLError where error.code == .cancelled {
+            logger.info("Network request was cancelled")
+            throw SupabaseClientError.networkError(error)
         } catch {
             logger.error("Network error while fetching tracked stories: \(error.localizedDescription)")
             throw SupabaseClientError.networkError(error)
@@ -789,28 +828,65 @@ class SupabaseClient {
                 throw SupabaseClientError.responseError(0, "Non-HTTP response received")
             }
             
+            // Log the raw response data for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                logger.debug("Raw response data: \(responseString)")
+            } else {
+                logger.warning("Could not convert response data to string")
+            }
+            
             if httpResponse.statusCode != 201 && httpResponse.statusCode != 200 {
-                            logger.error("Failed to create tracked story, server returned: \(httpResponse.statusCode)")
-                            throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to create tracked story")
-                        }
-                        
+                logger.error("Failed to create tracked story, server returned: \(httpResponse.statusCode)")
+                throw SupabaseClientError.responseError(httpResponse.statusCode, "Failed to create tracked story")
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                
+                // Try multiple approaches to decode the response
+                do {
+                    // First try the standard response structure
+                    let trackedStoryResponse = try decoder.decode(TrackedStoryResponse.self, from: data)
+                    logger.info("Successfully created tracked story with ID: \(trackedStoryResponse.data.id)")
+                    return trackedStoryResponse.data
+                } catch let standardError {
+                    logger.warning("Standard response decoding failed: \(standardError.localizedDescription)")
+                    
+                    // Try to extract and decode just the data object if possible
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let dataObject = json["data"] as? [String: Any],
+                       let dataData = try? JSONSerialization.data(withJSONObject: dataObject) {
                         do {
-                            let decoder = JSONDecoder()
-                            decoder.keyDecodingStrategy = .convertFromSnakeCase
-                            let trackedStoryResponse = try decoder.decode(TrackedStoryResponse.self, from: data)
-                            logger.info("Successfully created tracked story with ID: \(trackedStoryResponse.data.id)")
-                            return trackedStoryResponse.data
-                        } catch {
-                            logger.error("Failed to decode tracked story response: \(error.localizedDescription)")
-                            throw SupabaseClientError.decodingError(error)
+                            let story = try decoder.decode(TrackedStory.self, from: dataData)
+                            logger.info("Successfully decoded story from extracted data object")
+                            return story
+                        } catch let dataObjectError {
+                            logger.warning("Data object decoding failed: \(dataObjectError.localizedDescription)")
                         }
-                    } catch let error as SupabaseClientError {
-                        throw error
-                    } catch {
-                        logger.error("Network error while creating tracked story: \(error.localizedDescription)")
-                        throw SupabaseClientError.networkError(error)
+                    }
+                    
+                    // Last resort: try to decode directly as a TrackedStory
+                    do {
+                        let story = try decoder.decode(TrackedStory.self, from: data)
+                        logger.info("Decoded story directly from response")
+                        return story
+                    } catch let directError {
+                        logger.error("All decoding attempts failed. Last error: \(directError.localizedDescription)")
+                        throw SupabaseClientError.decodingError(directError)
                     }
                 }
+            } catch {
+                logger.error("Failed to decode tracked story response: \(error.localizedDescription)")
+                throw SupabaseClientError.decodingError(error)
+            }
+        } catch let error as SupabaseClientError {
+            throw error
+        } catch {
+            logger.error("Network error while creating tracked story: \(error.localizedDescription)")
+            throw SupabaseClientError.networkError(error)
+        }
+    }
                 
                 func deleteTrackedStory(storyId: String) async throws {
                     logger.info("Deleting tracked story with ID: \(storyId)")
@@ -935,9 +1011,11 @@ class SupabaseClient {
                             let response = try decoder.decode(TrackedStoryResponse.self, from: data)
                             logger.info("Successfully fetched story details")
                             return response.data
+                        } catch let error as SupabaseClientError {
+                            throw error
                         } catch {
-                            logger.error("Failed to decode story details: \(error.localizedDescription)")
-                            throw SupabaseClientError.decodingError(error)
+                            logger.error("Network error while getting story details: \(error.localizedDescription)")
+                            throw SupabaseClientError.networkError(error)
                         }
                     } catch let error as SupabaseClientError {
                         throw error
