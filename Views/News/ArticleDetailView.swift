@@ -1,89 +1,91 @@
-//
-//  ArticleDetailView.swift
-//  NewsFlowAI
-//
-//  Created by Akalpit Dawkhar on 3/3/25.
-//
-
 import SwiftUI
 
 struct ArticleDetailView: View {
     let article: Article
     @EnvironmentObject var newsViewModel: NewsViewModel
+    @EnvironmentObject var storyTrackingViewModel: StoryTrackingViewModel
     @Environment(\.openURL) private var openURL
-    
+    @State private var isTrackingAlertShown = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // Article image
+                if let imageUrl = article.imageUrl,
+                   let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 250)
+                            .clipped()
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 250)
+                    }
+                }
+                
+                // Article title
+                Text(article.title)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal)
+                
+                // Meta data: source and date
                 HStack {
                     Text(article.source)
                         .font(.subheadline)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(4)
-                    
+                        .foregroundColor(.secondary)
                     Spacer()
-                    
                     Text(formatDate(article.date))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
+                .padding(.horizontal)
                 
-                Text(article.title)
-                    .font(.title)
-                    .fontWeight(.bold)
+                // Article summary
+                Text(article.summary)
+                    .font(.body)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal)
                 
-                if let imageUrl = article.imageUrl, !imageUrl.isEmpty {
-                    AsyncImage(url: URL(string: imageUrl)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(height: 200)
-                    .cornerRadius(8)
-                    .clipped()
-                }
-                
-                if let author = article.author, !author.isEmpty {
-                    Text("By \(author)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Summary")
-                        .font(.headline)
-                    
-                    Text(article.summary)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                }
-                .padding()
-                .background(Color(UIColor.secondarySystemBackground))
-                .cornerRadius(8)
-                
-                HStack {
+                // Action buttons
+                HStack(spacing: 16) {
                     Button {
                         if let url = URL(string: article.url) {
                             openURL(url)
                         }
                     } label: {
-                        HStack {
-                            Image(systemName: "safari")
-                            Text("Read full article")
-                        }
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
+                        Label("Read Full Article", systemImage: "safari")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                     }
                     
-                    Spacer()
+                    Button {
+                        isTrackingAlertShown = true
+                    } label: {
+                        Image(systemName: "bell")
+                            .font(.system(size: 22))
+                            .foregroundColor(.orange)
+                            .padding(12)
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .cornerRadius(8)
+                    }
+                    .alert("Track This Story", isPresented: $isTrackingAlertShown) {
+                        Button("Track") {
+                            let keyword = storyTrackingViewModel.extractMainKeyword(from: article.title)
+                            Task {
+                                await storyTrackingViewModel.startTracking(keyword: keyword, sourceArticleId: article.id)
+                            }
+                        }
+                        Button("Cancel", role: .cancel) { }
+                    } message: {
+                        Text("Would you like to track stories related to this topic?")
+                    }
                     
                     Button {
                         Task {
@@ -98,8 +100,9 @@ struct ArticleDetailView: View {
                             .cornerRadius(8)
                     }
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
-            .padding()
         }
         .navigationTitle("Article")
         .navigationBarTitleDisplayMode(.inline)
@@ -113,30 +116,12 @@ struct ArticleDetailView: View {
     }
     
     private func formatDate(_ dateString: String) -> String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        
-        if let date = dateFormatter.date(from: dateString) {
-            dateFormatter.dateFormat = "MMM d, yyyy"
-            return dateFormatter.string(from: date)
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .medium
+            return displayFormatter.string(from: date)
         }
-        
         return dateString
-    }
-}
-
-#Preview {
-    NavigationView {
-        ArticleDetailView(article: Article(
-            id: "1",
-            title: "Sample Article Title That Is Fairly Long For Testing Purposes",
-            summary: "This is a sample summary of the article that should span multiple lines to test how the layout appears in the UI. It contains enough text to properly demonstrate word wrapping and line spacing in the ArticleDetailView.",
-            source: "The New York Times",
-            imageUrl: "https://placehold.it/600x400",
-            date: "2023-11-15T10:30:00.000Z",
-            url: "https://example.com",
-            author: "John Doe"
-        ))
-        .environmentObject(NewsViewModel())
     }
 }

@@ -11,6 +11,7 @@ struct MainTabView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @StateObject private var newsViewModel = NewsViewModel()
     @StateObject private var bookmarkViewModel = BookmarkViewModel()
+    @StateObject private var storyTrackingViewModel = StoryTrackingViewModel()
     
     var body: some View {
         TabView {
@@ -20,6 +21,14 @@ struct MainTabView: View {
             }
             .tabItem {
                 Label("Home", systemImage: "house.fill")
+            }
+            
+            NavigationView {
+                StoriesListView()
+                    .environmentObject(storyTrackingViewModel)
+            }
+            .tabItem {
+                Label("Tracking", systemImage: "bell")
             }
             
             NavigationView {
@@ -47,7 +56,7 @@ struct MainTabView: View {
             }
         }
         .onAppear {
-            // Customize tab bar appearance if needed
+            // Set up tab bar appearance
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
             UITabBar.appearance().standardAppearance = appearance
@@ -55,17 +64,21 @@ struct MainTabView: View {
                 UITabBar.appearance().scrollEdgeAppearance = appearance
             }
             
+            // Start polling for story tracking
+            storyTrackingViewModel.startPolling()
+            
+            // Load initial data
             Task {
                 if !newsViewModel.selectedKeywords.isEmpty {
                     await newsViewModel.search(keyword: newsViewModel.selectedKeywords.joined(separator: " "))
                 }
                 await bookmarkViewModel.fetchBookmarks()
+                await storyTrackingViewModel.fetchTrackedStories()
             }
         }
+        .onDisappear {
+            // Clean up polling when view disappears
+            storyTrackingViewModel.stopPolling()
+        }
     }
-}
-
-#Preview {
-    MainTabView()
-        .environmentObject(AuthViewModel())
 }

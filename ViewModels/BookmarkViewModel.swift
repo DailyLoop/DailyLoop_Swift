@@ -12,10 +12,18 @@ class BookmarkViewModel: ObservableObject {
     @Published var bookmarkedArticles: [Article] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    private var isFetching = false  // Add this flag to prevent concurrent fetches
     
     private let supabase = SupabaseClient.shared
     
     func fetchBookmarks() async {
+        // Prevent concurrent fetch operations
+        guard !isFetching else {
+            return
+        }
+        
+        isFetching = true
+        
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -37,6 +45,8 @@ class BookmarkViewModel: ObservableObject {
                 self.isLoading = false
             }
         }
+        
+        isFetching = false
     }
     
     func removeBookmark(article: Article) async {

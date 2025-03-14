@@ -20,7 +20,7 @@ struct Article: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, title, summary, source, url, author
         case imageUrl = "image"
-        case date = "published_at"
+        case date = "publishedAt"
         case bookmarkId = "bookmark_id"
     }
 }
